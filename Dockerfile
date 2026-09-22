@@ -3,5 +3,5 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
-# Запускаем скрипт напрямую через питон
-CMD ["python", "app.py"]
+# Вот тут пишем имя твоего файла с базой данных
+CMD ["python", "Sqapp.py"]
