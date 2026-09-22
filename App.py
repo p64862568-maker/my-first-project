@@ -1,48 +1,79 @@
 from flask import Flask, request, jsonify
-import sqlite3
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+# Простая база данных прямо в файле, чтобы Render не ругался на отсутствие Postgres
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
-def init_db():
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            content TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    notes = db.relationship('Note', backref='category', lazy=True)
 
-@app.route("/notes", methods=["GET"])
-def get_notes():
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, title, content FROM notes")
-    rows = cursor.fetchall()
-    conn.close()
-    
-    notes_list = []
-    for row in rows:
-        notes_list.append({"id": row[0], "title": row[1], "content": row[2]})
-    return jsonify(notes_list)
+class Note(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
 
 @app.route("/notes", methods=["POST"])
 def create_note():
-    data = request.get_json()
-    title = data.get("title")
-    content = data.get("content")
+    data = request.get_json() or {}
+    new_note = Note(
+        title=data.get("title", "Untitled"),
+        content=data.get("content", ""),
+        category_id=data.get("category_id")
+    )
+    db.session.add(new_note)
+    db.session.commit()
+    return jsonify({"status": "created"}), 201
+
+@app.route("/notes", methods=["GET"])
+def get_notes():
+    cat_id = request.args.get("category_id")
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 5, type=int)
     
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO notes (title, content) VALUES (?, ?)", (title, content))
-    conn.commit()
-    conn.close()
+    query = db.session.query(Note).outerjoin(Category)
+    if cat_id:
+        query = query.filter(Note.category_id == cat_id)
+        
+    paginated_query = query.paginate(page=page, per_page=per_page, error_out=False)
     
-    return jsonify({"status": "success", "message": "Note created"}), 201
+    notes_list = []
+    for note in paginated_query.items:
+        cat_name = note.category.name if note.category else "No category"
+        notes_list.append({
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "category": cat_name
+        })
+    return jsonify(notes_list)
+
+@app.route("/notes/<int:note_id>", methods=["PUT"])
+def update_note(note_id):
+    data = request.get_json() or {}
+    note = Note.query.get(note_id)
+    if not note:
+        return jsonify({"error": "Not found"}), 404
+    note.title = data.get("title", note.title)
+    note.content = data.get("content", note.content)
+    db.session.commit()
+    return jsonify({"status": "updated"})
+
+@app.route("/notes/<int:note_id>", methods=["DELETE"])
+def delete_note(note_id):
+    note = Note.query.get(note_id)
+    if not note:
+        return jsonify({"error": "Not found"}), 404
+    db.session.delete(note)
+    db.session.commit()
+    return jsonify({"status": "deleted"})
 
 if __name__ == "__main__":
-    init_db()
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
