@@ -37,3 +37,5 @@ curl -X PUT http://localhost:5000/notes/1 -H "Content-Type: application/json" -d
 
 4. Запрос на удаление заметки (DELETE):
 curl -X DELETE http://localhost:5000/notes/1
+
+# Демо проекта (Ссылка на хостинг): https://my-first-project-4-rht8.onrender.com/
