@@ -1,0 +1,3 @@
+192.168.1.50 - ERROR - Connection timed out
+10.0.0.12 - INFO - User logged in
+192.168.1.50 - CRITICAL - Disk full
