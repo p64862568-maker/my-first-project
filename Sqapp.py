@@ -93,5 +93,6 @@ def delete_note(note_id):
 
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all() # Создает таблицы в Postgres, если их нет
-    app.run(debug=True)
+        db.create_all()
+    # На Render нужно ОБЯЗАТЕЛЬНО слушать 0.0.0.0 и порт 10000
+    app.run(host="0.0.0.0", port=10000)
