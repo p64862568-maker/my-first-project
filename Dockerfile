@@ -3,5 +3,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
-# Вот тут пишем имя твоего файла с базой данных
+# Говорим контейнеру открыть порт для Render
+EXPOSE 10000
 CMD ["python", "Sqapp.py"]
